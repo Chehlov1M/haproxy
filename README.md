@@ -7,7 +7,7 @@
 
 ### Настройки router
 
-![Скриншот настройки в программе "Cisco packet tracer" router1]
+![Скриншот настройки в программе "Cisco packet tracer" router1](haproxy_curl.png)
 *Cisco packet tracer.*
 
 ## Задание 2
