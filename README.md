@@ -5,10 +5,10 @@
 ## Задание 1
 
 
-### Настройки router
+### Результат нескольких последовательных запросов к HAProxy
 
-![Скриншот настройки в программе "Cisco packet tracer" router1](haproxy_curl.png)
-*Cisco packet tracer.*
+![Скриншот последовательных запросов к HAProxy через curl](haproxy_curl.png)
+*Чередование ответов «Server 1 Port 8888» и «Server 2 Port 9999».*
 
 ## Задание 2
 
