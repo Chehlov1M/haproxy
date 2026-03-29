@@ -4,7 +4,6 @@
 
 ## Задание 1
 
-Переделанная схема: keepalived/hsrp_advanced.pkt
 
 ### Настройки router
 
@@ -28,62 +27,99 @@
 ![ВМ-2]
 *compute-vm-2-5-10-hdd-1774417411166 (VM-2).*
 
-## Создание Bash‑скрипта проверки
+## Настройка HAProxy для L4‑балансировки (TCP)
 
-Содержимое файла `/usr/local/bin/check_webserver.sh`:
+Содержимое файла `/etc/haproxy/haproxy.cfg`:
 
 ```sh
 
-# Конфигурация
-WEB_PORT=80
-WEB_ROOT="/var/www/html"
-INDEX_FILE="index.html"
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
 
-# Проверка существования файла index.html
-if [ ! -f "${WEB_ROOT}/${INDEX_FILE}" ]; then
-    echo "ERROR: File ${INDEX_FILE} not found in ${WEB_ROOT}"
-    exit 1
-fi
+    ca-base /etc/ssl/certs
+    crt-base /etc/ssl/private
 
-# Проверка доступности порта веб‑сервера
-if ! nc -z -w 3 localhost ${WEB_PORT}; then
-    echo "ERROR: Web server port ${WEB_PORT} is not accessible"
-    exit 1
-fi
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
+    ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20-POLY1305_SHA256
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
 
-# Если всё в порядке
-echo "OK: Web server and index.html are available"
-exit 0
+defaults
+    log global
+    mode tcp                # L4: TCP балансировка
+    option tcplog
+    option dontlognull
+    timeout connect 5000ms
+    timeout client  50000ms
+    timeout server  50000ms
+
+listen stats
+    bind :888
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+    stats realm Haproxy\ Statistics
+
+listen web_tcp
+    bind :1325              # Порт, на котором HAProxy принимает запросы
+    mode tcp               # Указываем режим TCP
+    balance roundrobin     # Алгоритм балансировки
+    server s1 213.165.214.212:8888 check inter 3s
+    server s2 178.154.193.87:9999 check inter 3s
+
 ```
-## Настройка VIP в Keepalived
+## Конфигурация HAProxy для Weighted Round Robin на L7
 
-Содержимое файла `/etc/keepalived/keepalived.conf`:
+Содержимое файла `/etc/haproxy/haproxy.cfg`:
 
-VM1 (MASTER):
-```conf
-vrrp_instance VI_1 {
-    state BACKUP
-    interface eth0
-    virtual_router_id 15
-    priority 255
-    nopreempt
+```sh
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
 
-    virtual_ipaddress {
-        192.168.111.15/24 dev eth0
-    }
-}
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    timeout connect 5000ms
+    timeout client  50000ms
+    timeout server  50000ms
 
-```
-VM2 (BACKUP):
-```conf
-vrrp_instance VI_1 {
-    state BACKUP
-    interface eth0
-    virtual_router_id 15
-    priority 100
-    nopreempt
+listen stats
+    bind :888
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+    stats realm Haproxy\ Statistics
 
-    virtual_ipaddress {
-        192.168.111.15/24 dev eth0
-    }
-}
+frontend web_frontend
+    bind :1325
+    mode http
+    acl is_example_local hdr(host) -i example.local
+    use_backend web_weighted if is_example_local
+    default_backend web_weighted  # для демонстрации без домена
+
+backend web_weighted
+    mode http
+    balance roundrobin
+    option httpchk
+    http-check send meth GET uri /
+    http-check expect status 200
+    server s1 213.165.214.212:8888 weight 2 check inter 3s
+    server s2 178.154.193.87:9999 weight 3 check inter 3s
+    server s3 213.165.213.89:7777 weight 4 check inter 3s
