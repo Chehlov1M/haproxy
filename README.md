@@ -4,8 +4,7 @@
 
 ## Задание 1
 
-## Настройка HAProxy для L4‑балансировки (TCP)
-
+## Настройка HAProxy для L4‑балансировки (TCP): haproxy.cfg
 
 ### Результат нескольких последовательных запросов к HAProxy
 
@@ -14,7 +13,7 @@
 
 ## Задание 2
 
-## Конфигурация HAProxy для Weighted Round Robin на L7
+## Конфигурация HAProxy для Weighted Round Robin на L7: 
 
 
 ### Балансировка по домену example.local
