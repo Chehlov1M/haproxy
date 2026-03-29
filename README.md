@@ -13,7 +13,7 @@
 
 ## Задание 2
 
-## Конфигурация HAProxy для Weighted Round Robin на L7: haproxy_.cfg
+## [Конфигурация HAProxy для Weighted Round Robin на L7](haproxy_.cfg)
 
 ### Балансировка по домену example.local и балансировка без домена (по IP)
 
